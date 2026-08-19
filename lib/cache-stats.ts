@@ -15,12 +15,22 @@
  * matching lib/inject-stamp.ts and lib/remote-slug.ts.
  */
 
+/** Minimal structural subset of a per-request cost breakdown (USD). */
+export interface CostLike {
+	input?: number;
+	output?: number;
+	cacheRead?: number;
+	cacheWrite?: number;
+	total?: number;
+}
+
 /** Minimal structural subset of pi-ai's Usage. */
 export interface UsageLike {
 	input?: number;
 	output?: number;
 	cacheRead?: number;
 	cacheWrite?: number;
+	cost?: CostLike;
 }
 
 /** Minimal structural subset of pi's SessionEntry union (message, compaction,
@@ -41,19 +51,23 @@ export interface UsageTotals {
 	output: number;
 	cacheRead: number;
 	cacheWrite: number;
+	/** Sum of usage.cost.total over all counted entries (USD). */
+	costTotal: number;
 }
 
 /** One-pass scan result for footer rendering: session-wide totals plus the
- * latest request's cache hit rate. */
+ * latest request's cache hit rate and the accumulated metered cost. */
 export interface CacheSummary {
 	totals: UsageTotals;
 	/** Percent, or undefined when no assistant message with a non-zero
 	 * prompt exists. 0 means the latest request had no cache reads. */
 	hitRate: number | undefined;
+	/** Sum of usage.cost.total across the session (USD). */
+	costTotal: number;
 }
 
 export function createUsageTotals(): UsageTotals {
-	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 };
 }
 
 /** Add one usage record into totals; missing/undefined fields count as 0. */
@@ -63,6 +77,7 @@ export function addUsage(totals: UsageTotals, usage: UsageLike | undefined): voi
 	totals.output += usage.output ?? 0;
 	totals.cacheRead += usage.cacheRead ?? 0;
 	totals.cacheWrite += usage.cacheWrite ?? 0;
+	totals.costTotal += usage.cost?.total ?? 0;
 }
 
 /**
@@ -124,7 +139,7 @@ export function cacheSummary(entries: readonly SessionEntryLike[]): CacheSummary
 			addUsage(totals, entry.usage);
 		}
 	}
-	return { totals, hitRate };
+	return { totals, hitRate, costTotal: totals.costTotal };
 }
 
 /**
@@ -137,4 +152,13 @@ export function formatTokens(count: number): string {
 	if (count < 1000000) return `${Math.round(count / 1000)}k`;
 	if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
 	return `${Math.round(count / 1000000)}M`;
+}
+
+/**
+ * Format an accumulated USD cost for the footer. Two decimals always
+ * (toFixed(2)); cny multiplies by the user-configured manual rate.
+ */
+export function formatCost(costUsd: number, currency: "usd" | "cny", rate: number): string {
+	const value = currency === "cny" ? costUsd * rate : costUsd;
+	return `${currency === "cny" ? "¥" : "$"}${value.toFixed(2)}`;
 }
