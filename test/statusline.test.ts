@@ -12,6 +12,7 @@ import {
 	hjoin,
 	modelName,
 	pad,
+	resolveUserHost,
 	shortCwd,
 	stripRepoPrefix,
 	thinkColor,
@@ -87,6 +88,12 @@ check(
 	hjoin("aaaa", "bbbb", 5, measure, truncate).length <= 5,
 );
 eq("hjoin empty right", hjoin("ab", "", 5, measure, truncate), "ab   ");
+
+// ---- resolveUserHost: /statusbar config value vs auto-detection ----
+eq("resolveUserHost falls back to detection", resolveUserHost(undefined, "alice", "laptop"), "alice@laptop");
+eq("resolveUserHost uses configured value", resolveUserHost("bob@server", "alice", "laptop"), "bob@server");
+eq("resolveUserHost trims configured value", resolveUserHost("  bob@server  ", "alice", "laptop"), "bob@server");
+eq("resolveUserHost rejects blank configured value", resolveUserHost("   ", "alice", "laptop"), "alice@laptop");
 
 if (failed) {
 	console.error(`\n${failed} checks FAILED`);

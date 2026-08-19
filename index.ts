@@ -2,14 +2,14 @@
  * cc-statusline — Claude Code 风格的底部状态栏（footer），两行布局
  *
  * Layout (two lines, left/right aligned):
- *   elling@rog_m9c  ~/git-repo/github/superpowers  <session title>      R6.7M CH99.9%  2026-08-07 23:25
- *   obra/superpowers | git:(main)                  (ollama) glm-5.2 • max • ctx:10.48%
+ *   <user>@<host>  ~/project  <session title>      R6.7M CH99.9%  2026-08-07 23:25
+ *   owner/repo | git:(main)                        (provider) model • effort • ctx:N%
  *
  * Line 1 — left: user@host + cwd + <session title>;  right: cache + datetime
  * Line 2 — left: git remote | git:(branch);  right: (provider) model • effort • ctx:N%
  *
  * Fields:
- *   user@host   : hardcoded constant (USER_HOST)
+ *   user@host   : /statusbar config, auto-detected (username@hostname) by default
  *   cwd         : ctx.cwd, $HOME shortened to ~
  *   <title>     : pi.getSessionName() in angle brackets, only when set;
  *                 the leading "owner/repo: " prefix is stripped (cwd already shows it)
@@ -40,7 +40,9 @@
  */
 
 import { execSync } from "node:child_process";
-import { homedir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir, hostname, userInfo } from "node:os";
+import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { cacheSummary, formatTokens, type SessionEntryLike } from "./lib/cache-stats";
@@ -49,14 +51,39 @@ import {
 	clockStr,
 	hjoin,
 	modelName,
+	resolveUserHost,
 	shortCwd,
 	stripRepoPrefix,
 	thinkColor,
 	triggerPct,
 } from "./lib/statusline";
 
-// Hardcode as requested; change here for another machine.
-const USER_HOST = "elling@rog_m9c";
+// Per-machine runtime config, written by /statusbar config:
+//   { "userHost": "alice@workstation" }
+// Lives next to the extension dir (same convention as pi-recap.json).
+const CONFIG_PATH = join(homedir(), ".pi", "agent", "extensions", "pi-statusbar.json");
+
+function readConfiguredUserHost(): string | undefined {
+	try {
+		if (!existsSync(CONFIG_PATH)) return undefined;
+		const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8")) as { userHost?: unknown };
+		return typeof raw.userHost === "string" ? raw.userHost : undefined;
+	} catch {
+		return undefined; // unreadable/invalid config: fall back to auto-detection
+	}
+}
+
+function saveConfiguredUserHost(value: string): void {
+	mkdirSync(dirname(CONFIG_PATH), { recursive: true });
+	writeFileSync(CONFIG_PATH, JSON.stringify({ userHost: value }, null, 2) + "\n", "utf8");
+}
+
+// Resolved at load: saved value wins, otherwise auto-detect username@hostname.
+let userHost = resolveUserHost(readConfiguredUserHost(), userInfo().username, hostname());
+
+// Captured when the footer registers so /statusbar config can re-render line 1
+// immediately after saving, without waiting for the next minute tick.
+let requestFooterRender: (() => void) | null = null;
 
 const HOME = homedir();
 
@@ -98,6 +125,7 @@ function joinLine(left: string, right: string, width: number): string {
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		ctx.ui.setFooter((tui, theme, footerData) => {
+			requestFooterRender = () => tui.requestRender();
 			const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
 
 			// Re-render when the thinking effort level or session name changes.
@@ -118,6 +146,7 @@ export default function (pi: ExtensionAPI) {
 				dispose() {
 					unsubBranch();
 					clearInterval(interval);
+					if (requestFooterRender) requestFooterRender = null;
 				},
 				invalidate() {},
 				render(width: number): string[] {
@@ -162,7 +191,7 @@ export default function (pi: ExtensionAPI) {
 					}
 
 					// ---- Line 1: [user@host  cwd  <title>]  ........  [cache  time] ----
-					let l1Left = `${dim(USER_HOST)}  ${text(shortCwd(ctx.cwd, HOME))}`;
+					let l1Left = `${dim(userHost)}  ${text(shortCwd(ctx.cwd, HOME))}`;
 					if (name) l1Left += `  ${accent(`<${stripRepoPrefix(name).toLowerCase()}>`)}`;
 					// Date stays dim (rarely changes); the live HH:MM gets a warm amber accent
 					// that stays readable on a light/white theme.
@@ -206,5 +235,35 @@ export default function (pi: ExtensionAPI) {
 				},
 			};
 		});
+	});
+
+	pi.registerCommand("statusbar", {
+		description: "Configure the status bar",
+		getArgumentCompletions: () => [
+			{ value: "config", label: "config", description: "Set the user@host label" },
+			{ value: "help", label: "help", description: "Show statusbar commands" },
+		],
+		handler: async (args, ctx) => {
+			const action = args.trim().split(/\s+/u)[0]?.toLowerCase() ?? "";
+			if (action === "config") {
+				if (!ctx.hasUI) {
+					ctx.ui.notify("Status bar configuration needs an interactive UI.", "error");
+					return;
+				}
+				const value = await ctx.ui.input("Status bar user@host label", userHost);
+				if (value === undefined) return; // cancelled with Esc
+				const trimmed = value.trim();
+				if (!trimmed) {
+					ctx.ui.notify("Status bar host unchanged: empty value.", "warning");
+					return;
+				}
+				saveConfiguredUserHost(trimmed);
+				userHost = trimmed;
+				ctx.ui.notify(`Status bar host set to ${trimmed}.`, "info");
+				requestFooterRender?.();
+				return;
+			}
+			ctx.ui.notify(`Status bar host: ${userHost}. Use /statusbar config to change it.`, "info");
+		},
 	});
 }

@@ -69,6 +69,15 @@ export function triggerPct(ctxWindow: number | undefined, reserveTokens: number 
 	return ((w - reserveTokens) / w) * 100;
 }
 
+// Resolve the user@host label shown at the left of the status bar's first
+// line. A value saved via /statusbar config wins; otherwise fall back to
+// auto-detection from the OS. Blank/whitespace-only configured values are
+// treated as missing.
+export function resolveUserHost(configured: string | undefined, username: string, host: string): string {
+	const trimmed = configured?.trim();
+	return trimmed ? trimmed : `${username}@${host}`;
+}
+
 // Join a left-aligned block and a right-aligned block on one terminal line.
 // Pads between them so `right` sits at the far right; when the two don't both
 // fit, the right side is truncated (rare on wide terminals).
