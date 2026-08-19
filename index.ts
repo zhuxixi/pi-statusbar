@@ -1,5 +1,5 @@
 /**
- * cc-statusline — Claude Code 风格的底部状态栏（footer），两行布局
+ * pi-statusbar — 双行底部状态栏（footer）扩展，两行布局
  *
  * Layout (two lines, left/right aligned):
  *   <user>@<host>  ~/project  <session title>      R6.7M CH99.9%  2026-08-07 23:25

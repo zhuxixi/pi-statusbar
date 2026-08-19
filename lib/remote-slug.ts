@@ -1,7 +1,7 @@
 /**
  * remote-slug — parse the repo path from a git remote URL.
  *
- * Pure (no fs / execSync) so it can be unit-tested in isolation. cc-statusline
+ * Pure (no fs / execSync) so it can be unit-tested in isolation. pi-statusbar
  * calls slugFromRemoteUrl() with the URL returned by `git remote get-url origin`.
  *
  * Host-agnostic: works for GitHub, GitLab (incl. subgroups), Gitea, Bitbucket,

@@ -1,5 +1,5 @@
 /**
- * Pure helpers for cc-statusline cache display (issue #5): accumulate prompt
+ * Pure helpers for pi-statusbar cache display (issue #5): accumulate prompt
  * cache usage from session entries and derive the hit rate pi's built-in
  * footer reports.
  *

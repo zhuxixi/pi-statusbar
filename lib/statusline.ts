@@ -1,7 +1,7 @@
 /**
- * Pure formatting helpers for cc-statusline. Zero pi dependency — unit-tested
+ * Pure formatting helpers for pi-statusbar. Zero pi dependency — unit-tested
  * via esbuild+node (test/statusline.test.ts). The extension entry
- * (cc-statusline.ts) wires these into pi's footer render loop, passing the
+ * (index.ts) wires these into pi's footer render loop, passing the
  * machine-dependent values (home dir, current time) and pi-tui's width
  * functions in as parameters.
  */

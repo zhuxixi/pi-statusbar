@@ -1,6 +1,6 @@
 # pi-statusbar
 
-A Claude Code-style two-line status bar (footer) for [pi](https://github.com/earendil-works/pi-coding-agent).
+A two-line status bar (footer) extension for [pi](https://github.com/earendil-works/pi-coding-agent).
 
 ```
 <user>@<host>  ~/project  <session title>      R6.7M CH99.9%  2026-08-07 23:25
