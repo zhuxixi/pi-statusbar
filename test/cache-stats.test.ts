@@ -13,6 +13,7 @@ import {
 	cacheSummary,
 	collectUsage,
 	createUsageTotals,
+	formatCost,
 	formatTokens,
 	type SessionEntryLike,
 } from "../lib/cache-stats";
@@ -33,6 +34,7 @@ const assistant = (usage: {
 	output?: number;
 	cacheRead?: number;
 	cacheWrite?: number;
+	cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; total?: number };
 }): SessionEntryLike => ({
 	type: "message",
 	message: { role: "assistant", usage },
@@ -42,6 +44,7 @@ const toolResult = (usage?: {
 	output?: number;
 	cacheRead?: number;
 	cacheWrite?: number;
+	cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; total?: number };
 }): SessionEntryLike => ({
 	type: "message",
 	message: { role: "toolResult", usage },
@@ -55,12 +58,14 @@ const compaction = (usage?: {
 	output?: number;
 	cacheRead?: number;
 	cacheWrite?: number;
+	cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; total?: number };
 }): SessionEntryLike => ({ type: "compaction", usage });
 const branchSummary = (usage?: {
 	input?: number;
 	output?: number;
 	cacheRead?: number;
 	cacheWrite?: number;
+	cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; total?: number };
 }): SessionEntryLike => ({ type: "branch_summary", usage });
 const other = (): SessionEntryLike => ({ type: "thinking_level_change" });
 
@@ -216,6 +221,88 @@ const fmtCases: Array<{ n: number; expect: string }> = [
 for (const { n, expect } of fmtCases) {
 	const got = formatTokens(n);
 	check(`formatTokens: ${n} -> ${expect}`, got === expect, `got ${got}`);
+}
+
+// ============ cost accumulation ============
+{
+	const totals = collectUsage([
+		assistant({ input: 100, cost: { total: 0.0207 } }),
+		assistant({ input: 200, cost: { total: 0.0001 } }),
+	]);
+	check(
+		"collectUsage: cost.total accumulates",
+		Math.abs(totals.costTotal - 0.0208) < 1e-12,
+		JSON.stringify(totals),
+	);
+}
+{
+	const totals = collectUsage([
+		assistant({ input: 100, cost: { total: 0 } }),
+		assistant({ input: 200, cost: { total: 0 } }),
+	]);
+	check("collectUsage: zero costs stay zero", totals.costTotal === 0, JSON.stringify(totals));
+}
+{
+	const totals = collectUsage([
+		toolResult({ input: 50, cost: { total: 0.001 } }),
+		compaction({ input: 300, cost: { total: 0.002 } }),
+	]);
+	check(
+		"collectUsage: toolResult/compaction cost counts",
+		Math.abs(totals.costTotal - 0.003) < 1e-12,
+		JSON.stringify(totals),
+	);
+}
+{
+	const totals = createUsageTotals();
+	addUsage(totals, { cost: { total: 0.005 } });
+	addUsage(totals, { input: 10 });
+	check(
+		"addUsage: cost-only and cost-less usage are safe",
+		Math.abs(totals.costTotal - 0.005) < 1e-12 && totals.input === 10,
+		JSON.stringify(totals),
+	);
+}
+{
+	// Malformed cost.total must never concatenate into a string costTotal
+	// (which would break toFixed in formatCost): numeric strings coerce to
+	// numbers, non-finite values are ignored.
+	const totals = createUsageTotals();
+	addUsage(totals, { cost: { total: "0.5" as unknown as number } });
+	addUsage(totals, { cost: { total: Number.NaN } });
+	addUsage(totals, { cost: { total: 0.25 } });
+	check(
+		"addUsage: numeric-string cost coerces, non-finite ignored",
+		typeof totals.costTotal === "number" && Math.abs(totals.costTotal - 0.75) < 1e-12,
+		JSON.stringify(totals),
+	);
+}
+{
+	const { costTotal, totals } = cacheSummary([
+		assistant({ input: 1000, cacheRead: 9000, cost: { total: 0.0207 } }),
+		assistant({ input: 500, cacheRead: 4500, cost: { total: 0.0001 } }),
+	]);
+	check(
+		"cacheSummary: costTotal exposed and matches totals",
+		costTotal === totals.costTotal && Math.abs(costTotal - 0.0208) < 1e-12,
+		JSON.stringify({ costTotal, totals: totals.costTotal }),
+	);
+}
+
+// ============ formatCost ============
+const costCases: Array<{ usd: number; currency: "usd" | "cny"; rate: number; expect: string }> = [
+	{ usd: 0, currency: "usd", rate: 7.2, expect: "$0.00" },
+	{ usd: 0.02, currency: "usd", rate: 7.2, expect: "$0.02" },
+	{ usd: 1.234, currency: "usd", rate: 7.2, expect: "$1.23" },
+	{ usd: 1.236, currency: "usd", rate: 7.2, expect: "$1.24" },
+	{ usd: 123.456, currency: "usd", rate: 7.2, expect: "$123.46" },
+	{ usd: 0.02, currency: "cny", rate: 7.2, expect: "¥0.14" },
+	{ usd: 1, currency: "cny", rate: 7.2, expect: "¥7.20" },
+	{ usd: 2.5, currency: "cny", rate: 7.1, expect: "¥17.75" },
+];
+for (const { usd, currency, rate, expect } of costCases) {
+	const got = formatCost(usd, currency, rate);
+	check(`formatCost: $${usd} ${currency}@${rate} -> ${expect}`, got === expect, `got ${got}`);
 }
 
 if (failed) {
