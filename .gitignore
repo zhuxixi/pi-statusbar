@@ -10,3 +10,6 @@ node_modules/
 
 # OS noise
 .DS_Store
+
+# pi worktrees (github-issue-driven convention)
+.pi/
