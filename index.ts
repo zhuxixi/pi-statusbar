@@ -2,10 +2,10 @@
  * pi-statusbar — 双行底部状态栏（footer）扩展，两行布局
  *
  * Layout (two lines, left/right aligned):
- *   <user>@<host>  ~/project  <session title>      R6.7M CH99.9%  2026-08-07 23:25
+ *   <user>@<host>  ~/project  <session title>      R6.7M CH99.9% $0.02  2026-08-07 23:25
  *   owner/repo | git:(main)                        (provider) model • effort • ctx:N%
  *
- * Line 1 — left: user@host + cwd + <session title>;  right: cache + datetime
+ * Line 1 — left: user@host + cwd + <session title>;  right: cache + cost + datetime
  * Line 2 — left: git remote | git:(branch);  right: (provider) model • effort • ctx:N%
  *
  * Fields:
@@ -26,6 +26,11 @@
  *                 cacheWrite)); shown left of the datetime on Line 1,
  *                 hidden when no cache activity was ever reported (local
  *                 models, providers without caching)
+ *   cost        : accumulated metered API cost of the session — sum of
+ *                 usage.cost.total over all entries (provider-agnostic;
+ *                 subscription providers record 0 and add nothing). Shown
+ *                 as $X.XX (usd) or ¥X.XX (cny, manual rate), always two
+ *                 decimals, dim, only when the total is > 0.
  *
  * Colors (light-warm palette): cwd/ctx-normal = text(dark), title = accent(teal),
  * git branch = success(green), provider = border(blue), model = accent(teal),
@@ -40,12 +45,12 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, hostname, userInfo } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { cacheSummary, formatTokens, type SessionEntryLike } from "./lib/cache-stats";
+import { cacheSummary, formatCost, formatTokens, type SessionEntryLike } from "./lib/cache-stats";
+import { readConfig, writeConfig } from "./lib/config";
 import { slugFromRemoteUrl } from "./lib/remote-slug";
 import {
 	clockStr,
@@ -63,23 +68,12 @@ import {
 // Lives next to the extension dir (same convention as pi-recap.json).
 const CONFIG_PATH = join(homedir(), ".pi", "agent", "extensions", "pi-statusbar.json");
 
-function readConfiguredUserHost(): string | undefined {
-	try {
-		if (!existsSync(CONFIG_PATH)) return undefined;
-		const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8")) as { userHost?: unknown };
-		return typeof raw.userHost === "string" ? raw.userHost : undefined;
-	} catch {
-		return undefined; // unreadable/invalid config: fall back to auto-detection
-	}
-}
-
-function saveConfiguredUserHost(value: string): void {
-	mkdirSync(dirname(CONFIG_PATH), { recursive: true });
-	writeFileSync(CONFIG_PATH, JSON.stringify({ userHost: value }, null, 2) + "\n", "utf8");
-}
-
 // Resolved at load: saved value wins, otherwise auto-detect username@hostname.
-let userHost = resolveUserHost(readConfiguredUserHost(), userInfo().username, hostname());
+// currency/cnyRate also load once; /statusbar config * subcommands update them.
+const initialConfig = readConfig(CONFIG_PATH);
+let userHost = resolveUserHost(initialConfig.userHost, userInfo().username, hostname());
+let currency: "usd" | "cny" = initialConfig.currency;
+let cnyRate = initialConfig.cnyRate;
 
 // Captured when the footer registers so /statusbar config can re-render line 1
 // immediately after saving, without waiting for the next minute tick.
@@ -180,7 +174,7 @@ export default function (pi: ExtensionAPI) {
 					// instead of being diluted by history. Shown left of the datetime on
 					// Line 1; hidden when the session never reported cache activity.
 					const entries = ctx.sessionManager.getEntries() as unknown as readonly SessionEntryLike[];
-					const { totals: cacheTotals, hitRate } = cacheSummary(entries);
+					const { totals: cacheTotals, hitRate, costTotal } = cacheSummary(entries);
 					let cacheText = "";
 					if (cacheTotals.cacheRead > 0 || cacheTotals.cacheWrite > 0) {
 						const parts: string[] = [];
@@ -190,6 +184,12 @@ export default function (pi: ExtensionAPI) {
 						cacheText = dim(parts.join(" "));
 					}
 
+					// ---- cost segment: accumulated metered API cost (usd/cny) ----
+					// Sums usage.cost.total over all entries; subscription providers
+					// record 0 so they add nothing. Hidden entirely when the total is 0.
+					const costText =
+						costTotal > 0 ? dim(formatCost(costTotal, currency, cnyRate)) : "";
+
 					// ---- Line 1: [user@host  cwd  <title>]  ........  [cache  time] ----
 					let l1Left = `${dim(userHost)}  ${text(shortCwd(ctx.cwd, HOME))}`;
 					if (name) l1Left += `  ${accent(`<${stripRepoPrefix(name).toLowerCase()}>`)}`;
@@ -198,7 +198,8 @@ export default function (pi: ExtensionAPI) {
 					const ts = nowStr();
 					const tsSplit = ts.lastIndexOf(" ");
 					const timeColored = dim(ts.slice(0, tsSplit)) + " " + warn(ts.slice(tsSplit + 1));
-					const l1Right = (cacheText ? cacheText + "  " : "") + timeColored;
+					const l1Right =
+						(cacheText ? cacheText + "  " : "") + (costText ? costText + "  " : "") + timeColored;
 					const line1 = joinLine(l1Left, l1Right, width);
 
 					// ---- Line 2 left: [slug | git:(branch)] ----
@@ -241,11 +242,62 @@ export default function (pi: ExtensionAPI) {
 		description: "Configure the status bar",
 		getArgumentCompletions: () => [
 			{ value: "config", label: "config", description: "Set the user@host label" },
+			{ value: "config currency", label: "config currency", description: "Set the cost currency (usd/cny)" },
+			{ value: "config rate", label: "config rate", description: "Set the CNY rate (CNY per 1 USD)" },
 			{ value: "help", label: "help", description: "Show statusbar commands" },
 		],
 		handler: async (args, ctx) => {
-			const action = args.trim().split(/\s+/u)[0]?.toLowerCase() ?? "";
-			if (action === "config") {
+			const parts = args.trim().split(/\s+/u);
+			const action = parts[0]?.toLowerCase() ?? "";
+			const sub = parts[1]?.toLowerCase() ?? "";
+			if (action === "config" && sub === "currency") {
+				if (!ctx.hasUI) {
+					ctx.ui.notify("Status bar configuration needs an interactive UI.", "error");
+					return;
+				}
+				// Native selector; current value surfaced in the title.
+				const value = await ctx.ui.select(`Status bar cost currency (current: ${currency})`, [
+					"usd",
+					"cny",
+				]);
+				if (value === undefined) return; // cancelled with Esc
+				try {
+					writeConfig(CONFIG_PATH, { currency: value as "usd" | "cny" });
+				} catch (err) {
+					ctx.ui.notify(`Failed to save status bar config: ${err}`, "error");
+					return;
+				}
+				currency = value as "usd" | "cny";
+				ctx.ui.notify(`Status bar cost currency set to ${currency}.`, "info");
+				requestFooterRender?.();
+				return;
+			}
+			if (action === "config" && sub === "rate") {
+				if (!ctx.hasUI) {
+					ctx.ui.notify("Status bar configuration needs an interactive UI.", "error");
+					return;
+				}
+				// pi's built-in input dialog ignores its placeholder argument, so
+				// surface the current value in the title instead (input starts empty).
+				const value = await ctx.ui.input(`Status bar CNY rate, CNY per 1 USD (current: ${cnyRate})`);
+				if (value === undefined) return; // cancelled with Esc
+				const parsed = Number(value.trim());
+				if (value.trim() === "" || !Number.isFinite(parsed) || parsed <= 0) {
+					ctx.ui.notify("Status bar rate unchanged: enter a positive number (e.g. 7.2).", "warning");
+					return;
+				}
+				try {
+					writeConfig(CONFIG_PATH, { cnyRate: parsed });
+				} catch (err) {
+					ctx.ui.notify(`Failed to save status bar config: ${err}`, "error");
+					return;
+				}
+				cnyRate = parsed;
+				ctx.ui.notify(`Status bar CNY rate set to ${parsed}.`, "info");
+				requestFooterRender?.();
+				return;
+			}
+			if (action === "config" && !sub) {
 				if (!ctx.hasUI) {
 					ctx.ui.notify("Status bar configuration needs an interactive UI.", "error");
 					return;
@@ -260,7 +312,7 @@ export default function (pi: ExtensionAPI) {
 					return;
 				}
 				try {
-					saveConfiguredUserHost(trimmed);
+					writeConfig(CONFIG_PATH, { userHost: trimmed });
 				} catch (err) {
 					ctx.ui.notify(`Failed to save status bar config: ${err}`, "error");
 					return;
@@ -272,7 +324,7 @@ export default function (pi: ExtensionAPI) {
 			}
 			if (action === "help") {
 				ctx.ui.notify(
-					"Status bar commands: /statusbar (show current host) · /statusbar config (set user@host label)",
+					"Status bar commands: /statusbar (show current host) · /statusbar config (set user@host) · /statusbar config currency (usd/cny) · /statusbar config rate (CNY per 1 USD)",
 					"info",
 				);
 				return;
