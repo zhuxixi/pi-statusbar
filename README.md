@@ -32,11 +32,11 @@ The `user@host` label is auto-detected from the OS (`username@hostname`) by defa
 /statusbar config
 ```
 
-This opens a text-input dialog pre-filled with the current value. Enter saves, Esc cancels. The saved value takes effect immediately and survives `/reload` and restarts.
+This opens a text-input dialog showing the current value in its title. Type the new label, Enter saves, Esc cancels. The saved value takes effect immediately and survives `/reload` and restarts.
 
 - Config file: `~/.pi/agent/extensions/pi-statusbar.json` (created automatically, per machine)
 - Format: `{ "userHost": "alice@workstation" }`
-- Delete the file to fall back to auto-detection.
+- Delete the file to fall back to auto-detection. If you edit the file by hand, run `/reload` to apply (config is read once at extension load).
 
 ## Development
 

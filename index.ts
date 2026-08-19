@@ -146,7 +146,7 @@ export default function (pi: ExtensionAPI) {
 				dispose() {
 					unsubBranch();
 					clearInterval(interval);
-					if (requestFooterRender) requestFooterRender = null;
+					requestFooterRender = null;
 				},
 				invalidate() {},
 				render(width: number): string[] {
@@ -250,17 +250,31 @@ export default function (pi: ExtensionAPI) {
 					ctx.ui.notify("Status bar configuration needs an interactive UI.", "error");
 					return;
 				}
-				const value = await ctx.ui.input("Status bar user@host label", userHost);
+				// pi's built-in input dialog ignores its placeholder argument, so
+				// surface the current value in the title instead (input starts empty).
+				const value = await ctx.ui.input(`Status bar user@host (current: ${userHost})`);
 				if (value === undefined) return; // cancelled with Esc
 				const trimmed = value.trim();
 				if (!trimmed) {
 					ctx.ui.notify("Status bar host unchanged: empty value.", "warning");
 					return;
 				}
-				saveConfiguredUserHost(trimmed);
+				try {
+					saveConfiguredUserHost(trimmed);
+				} catch (err) {
+					ctx.ui.notify(`Failed to save status bar config: ${err}`, "error");
+					return;
+				}
 				userHost = trimmed;
 				ctx.ui.notify(`Status bar host set to ${trimmed}.`, "info");
 				requestFooterRender?.();
+				return;
+			}
+			if (action === "help") {
+				ctx.ui.notify(
+					"Status bar commands: /statusbar (show current host) · /statusbar config (set user@host label)",
+					"info",
+				);
 				return;
 			}
 			ctx.ui.notify(`Status bar host: ${userHost}. Use /statusbar config to change it.`, "info");
