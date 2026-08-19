@@ -50,7 +50,7 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { cacheSummary, formatCost, formatTokens, type SessionEntryLike } from "./lib/cache-stats";
-import { readConfig, writeConfig } from "./lib/config";
+import { parseRateInput, readConfig, writeConfig } from "./lib/config";
 import { slugFromRemoteUrl } from "./lib/remote-slug";
 import {
 	clockStr,
@@ -281,9 +281,9 @@ export default function (pi: ExtensionAPI) {
 				// surface the current value in the title instead (input starts empty).
 				const value = await ctx.ui.input(`Status bar CNY rate, CNY per 1 USD (current: ${cnyRate})`);
 				if (value === undefined) return; // cancelled with Esc
-				const parsed = Number(value.trim());
-				if (value.trim() === "" || !Number.isFinite(parsed) || parsed <= 0) {
-					ctx.ui.notify("Status bar rate unchanged: enter a positive number (e.g. 7.2).", "warning");
+				const parsed = parseRateInput(value);
+				if (parsed === undefined) {
+					ctx.ui.notify("Status bar rate unchanged: enter a positive decimal number (e.g. 7.2).", "warning");
 					return;
 				}
 				try {

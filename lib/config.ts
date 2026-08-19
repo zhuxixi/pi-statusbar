@@ -49,6 +49,19 @@ export function parseConfig(raw: string): StatusbarConfig {
 	return out;
 }
 
+/**
+ * Parse user input for the CNY rate dialog. Strict decimal only: digits
+ * with an optional single decimal point (e.g. "7.2", "7"). Rejects
+ * hex/octal/binary/scientific notation, signs, and empty input.
+ * Returns undefined for anything invalid.
+ */
+export function parseRateInput(raw: string): number | undefined {
+	const trimmed = raw.trim();
+	if (!/^\d+(\.\d+)?$/u.test(trimmed)) return undefined;
+	const value = Number(trimmed);
+	return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 /** Read the config file; missing/unreadable/invalid files yield defaults. */
 export function readConfig(path: string): StatusbarConfig {
 	try {

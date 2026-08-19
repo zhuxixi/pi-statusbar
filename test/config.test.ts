@@ -9,6 +9,7 @@ import {
 	DEFAULT_CNY_RATE,
 	DEFAULT_CURRENCY,
 	parseConfig,
+	parseRateInput,
 	readConfig,
 	writeConfig,
 } from "../lib/config";
@@ -121,6 +122,27 @@ const path = join(dir, "pi-statusbar.json");
 		cfg.userHost === "dave@dev" && cfg.currency === "usd" && cfg.cnyRate === 7.1,
 		JSON.stringify(cfg),
 	);
+}
+
+// ============ parseRateInput ============
+const rateCases: Array<{ raw: string; expect: number | undefined }> = [
+	{ raw: "7.2", expect: 7.2 },
+	{ raw: "7", expect: 7 },
+	{ raw: "0.5", expect: 0.5 },
+	{ raw: " 7.2 ", expect: 7.2 },
+	{ raw: "", expect: undefined },
+	{ raw: "abc", expect: undefined },
+	{ raw: "0x10", expect: undefined },
+	{ raw: "1e3", expect: undefined },
+	{ raw: "-1", expect: undefined },
+	{ raw: "0", expect: undefined },
+	{ raw: "7.", expect: undefined },
+	{ raw: ".5", expect: undefined },
+	{ raw: "7.2.1", expect: undefined },
+];
+for (const { raw, expect } of rateCases) {
+	const got = parseRateInput(raw);
+	check(`parseRateInput: ${JSON.stringify(raw)} -> ${expect}`, got === expect, `got ${got}`);
 }
 
 rmSync(dir, { recursive: true, force: true });

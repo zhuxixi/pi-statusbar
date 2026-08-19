@@ -264,6 +264,20 @@ for (const { n, expect } of fmtCases) {
 	);
 }
 {
+	// Malformed cost.total must never concatenate into a string costTotal
+	// (which would break toFixed in formatCost): numeric strings coerce to
+	// numbers, non-finite values are ignored.
+	const totals = createUsageTotals();
+	addUsage(totals, { cost: { total: "0.5" as unknown as number } });
+	addUsage(totals, { cost: { total: Number.NaN } });
+	addUsage(totals, { cost: { total: 0.25 } });
+	check(
+		"addUsage: numeric-string cost coerces, non-finite ignored",
+		typeof totals.costTotal === "number" && Math.abs(totals.costTotal - 0.75) < 1e-12,
+		JSON.stringify(totals),
+	);
+}
+{
 	const { costTotal, totals } = cacheSummary([
 		assistant({ input: 1000, cacheRead: 9000, cost: { total: 0.0207 } }),
 		assistant({ input: 500, cacheRead: 4500, cost: { total: 0.0001 } }),

@@ -70,14 +70,18 @@ export function createUsageTotals(): UsageTotals {
 	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 };
 }
 
-/** Add one usage record into totals; missing/undefined fields count as 0. */
+/** Add one usage record into totals; missing/undefined fields count as 0.
+ * cost.total is coerced and validated: only finite numbers accumulate, so
+ * malformed entries can never turn costTotal into a string (which would
+ * break toFixed in formatCost). */
 export function addUsage(totals: UsageTotals, usage: UsageLike | undefined): void {
 	if (!usage) return;
 	totals.input += usage.input ?? 0;
 	totals.output += usage.output ?? 0;
 	totals.cacheRead += usage.cacheRead ?? 0;
 	totals.cacheWrite += usage.cacheWrite ?? 0;
-	totals.costTotal += usage.cost?.total ?? 0;
+	const cost = Number(usage.cost?.total);
+	if (Number.isFinite(cost)) totals.costTotal += cost;
 }
 
 /**
