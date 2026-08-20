@@ -6,6 +6,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-20
+
+### Changed
+
+- README restructured following markdown-pro conventions: real
+  screenshot, badges, table of contents, requirements section,
+  update/remove commands, troubleshooting, project layout, and links
+  to community docs.
+
+### Added
+
+- `assets/screenshot.png` now ships in the npm tarball and is
+  referenced by `pi.image` for the pi.dev/packages gallery preview.
+
 ## [0.1.1] - 2026-08-20
 
 ### Changed
