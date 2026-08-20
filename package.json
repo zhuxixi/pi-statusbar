@@ -18,7 +18,8 @@
   "files": [
     "index.ts",
     "lib/",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "assets/"
   ],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
@@ -27,6 +28,7 @@
   "pi": {
     "extensions": [
       "./index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/zhuxixi/pi-statusbar/main/assets/screenshot.png"
   }
 }
