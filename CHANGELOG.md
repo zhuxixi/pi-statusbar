@@ -6,6 +6,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-20
+
+### Changed
+
+- README installation section now documents
+  `pi install npm:@zhuxixi/pi-statusbar` as the recommended install
+  method, with the git-clone flow kept as an alternative.
+
+### Added
+
+- npm version and license badges in README.
+- Community files: CHANGELOG.md, CONTRIBUTING.md, SECURITY.md.
+
 ## [0.1.0] - 2026-08-20
 
 First public release, published to npm as `@zhuxixi/pi-statusbar`.
