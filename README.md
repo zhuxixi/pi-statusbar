@@ -1,5 +1,8 @@
 # pi-statusbar
 
+[![npm version](https://img.shields.io/npm/v/@zhuxixi/pi-statusbar)](https://www.npmjs.com/package/@zhuxixi/pi-statusbar)
+[![license](https://img.shields.io/github/license/zhuxixi/pi-statusbar)](./LICENSE)
+
 A two-line status bar (footer) extension for [pi](https://github.com/earendil-works/pi-coding-agent).
 
 ```
@@ -16,13 +19,19 @@ owner/repo | git:(main)                        (provider) model • effort • c
 
 ## Installation
 
-Clone this repository into a subdirectory of pi's global extensions dir and hot-reload:
+Install from npm (recommended):
+
+```bash
+pi install npm:@zhuxixi/pi-statusbar
+```
+
+Then run `/reload` in pi (no restart needed).
+
+Alternative — clone the repository into a subdirectory of pi's global extensions dir:
 
 ```bash
 git clone https://github.com/zhuxixi/pi-statusbar.git ~/.pi/agent/extensions/pi-statusbar
 ```
-
-Then run `/reload` in pi (no restart needed).
 
 ## Configuration
 

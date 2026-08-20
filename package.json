@@ -1,5 +1,5 @@
 {
-  "name": "pi-statusbar",
+  "name": "@zhuxixi/pi-statusbar",
   "version": "0.1.0",
   "description": "A two-line status bar (footer) extension for pi",
   "keywords": [
@@ -15,6 +15,10 @@
     "url": "git+https://github.com/zhuxixi/pi-statusbar.git"
   },
   "type": "module",
+  "files": [
+    "index.ts",
+    "lib/"
+  ],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
