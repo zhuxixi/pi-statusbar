@@ -249,11 +249,11 @@ In the footer factory (the `ctx.ui.setFooter((tui, theme, footerData) => { ... }
 			// changes (ctx.ui.setStatus), so poll the Map every 10s and
 			// re-render only when its contents actually changed. The compare
 			// is O(n) over a handful of entries — negligible.
-			let statusSnapshot: ReadonlyMap<string, string> = footerData.getExtensionStatuses();
+			let statusSnapshot: ReadonlyMap<string, string> = new Map(footerData.getExtensionStatuses());
 			const statusInterval = setInterval(() => {
 				const current = footerData.getExtensionStatuses();
 				if (statusesChanged(statusSnapshot, current)) {
-					statusSnapshot = current;
+					statusSnapshot = new Map(current);
 					tui.requestRender();
 				}
 			}, 10000);
