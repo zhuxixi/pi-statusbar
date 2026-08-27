@@ -9,11 +9,14 @@
  */
 import {
 	clockStr,
+	formatExtensionStatuses,
 	hjoin,
 	modelName,
 	pad,
 	resolveUserHost,
+	sanitizeStatusText,
 	shortCwd,
+	statusesChanged,
 	stripRepoPrefix,
 	thinkColor,
 	triggerPct,
@@ -94,6 +97,91 @@ eq("resolveUserHost falls back to detection", resolveUserHost(undefined, "alice"
 eq("resolveUserHost uses configured value", resolveUserHost("bob@server", "alice", "laptop"), "bob@server");
 eq("resolveUserHost trims configured value", resolveUserHost("  bob@server  ", "alice", "laptop"), "bob@server");
 eq("resolveUserHost rejects blank configured value", resolveUserHost("   ", "alice", "laptop"), "alice@laptop");
+
+// ---- sanitizeStatusText (mirrors pi built-in footer's sanitizeStatusText) ----
+eq("sanitize newline to space", sanitizeStatusText("a\nb"), "a b");
+eq("sanitize tab and CR", sanitizeStatusText("a\tb\rc"), "a b c");
+eq("sanitize collapses spaces", sanitizeStatusText("a  b   c"), "a b c");
+eq("sanitize trims ends", sanitizeStatusText("  x  "), "x");
+eq("sanitize clean text unchanged", sanitizeStatusText("🔌 MCP: 7 servers"), "🔌 MCP: 7 servers");
+
+// ---- formatExtensionStatuses ----
+eq("formatStatuses empty map", formatExtensionStatuses(new Map()), "");
+eq(
+	"formatStatuses single entry",
+	formatExtensionStatuses(new Map([["mcp", "🔌 MCP: 7 servers"]])),
+	"🔌 MCP: 7 servers",
+);
+eq(
+	"formatStatuses sorted by key",
+	formatExtensionStatuses(
+		new Map([
+			["b", "second"],
+			["a", "first"],
+		]),
+	),
+	"first second",
+);
+eq(
+	"formatStatuses sanitizes values",
+	formatExtensionStatuses(new Map([["k", "a\nb  c"]])),
+	"a b c",
+);
+
+// ---- statusesChanged ----
+eq(
+	"statusesChanged identical maps",
+	statusesChanged(
+		new Map([["a", "x"]]),
+		new Map([["a", "x"]]),
+	),
+	false,
+);
+eq(
+	"statusesChanged value change",
+	statusesChanged(
+		new Map([["a", "x"]]),
+		new Map([["a", "y"]]),
+	),
+	true,
+);
+eq(
+	"statusesChanged key added",
+	statusesChanged(
+		new Map([["a", "x"]]),
+		new Map([
+			["a", "x"],
+			["b", "y"],
+		]),
+	),
+	true,
+);
+eq(
+	"statusesChanged key removed",
+	statusesChanged(
+		new Map([
+			["a", "x"],
+			["b", "y"],
+		]),
+		new Map([["a", "x"]]),
+	),
+	true,
+);
+eq(
+	"statusesChanged insertion order ignored",
+	statusesChanged(
+		new Map([
+			["a", "x"],
+			["b", "y"],
+		]),
+		new Map([
+			["b", "y"],
+			["a", "x"],
+		]),
+	),
+	false,
+);
+eq("statusesChanged both empty", statusesChanged(new Map(), new Map()), false);
 
 if (failed) {
 	console.error(`\n${failed} checks FAILED`);

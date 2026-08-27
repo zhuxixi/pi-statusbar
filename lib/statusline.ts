@@ -93,3 +93,33 @@ export function hjoin(
 	const gap = Math.max(0, width - measure(left) - measure(right));
 	return truncate(left + " ".repeat(gap) + right, width);
 }
+
+// Mirror pi's built-in footer sanitization for extension status texts:
+// newlines/tabs/CR become spaces, runs of spaces collapse to one, ends trimmed.
+export function sanitizeStatusText(text: string): string {
+	return text.replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
+}
+
+// Format extension statuses (ctx.ui.setStatus) as one line, mirroring the
+// built-in footer: sorted by key, values sanitized, joined with one space.
+// Returns "" when there is nothing to show (empty Map or all values blank).
+export function formatExtensionStatuses(statuses: ReadonlyMap<string, string>): string {
+	if (statuses.size === 0) return "";
+	return Array.from(statuses.entries())
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([, text]) => sanitizeStatusText(text))
+		.join(" ");
+}
+
+// Light snapshot compare for the status poll: true when the set of
+// key/value pairs differs. Insertion order is irrelevant (Map lookups).
+export function statusesChanged(
+	prev: ReadonlyMap<string, string>,
+	next: ReadonlyMap<string, string>,
+): boolean {
+	if (prev.size !== next.size) return true;
+	for (const [key, value] of prev) {
+		if (next.get(key) !== value) return true;
+	}
+	return false;
+}
