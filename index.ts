@@ -1,5 +1,6 @@
 /**
- * pi-statusbar — 双行底部状态栏（footer）扩展，两行布局
+ * pi-statusbar — 双行底部状态栏（footer）扩展，两行布局 + 可选第三行
+ * （第三行只在其他扩展通过 ctx.ui.setStatus() 发布状态时出现）
  *
  * Layout (two lines plus an optional status line, left/right aligned):
  *   <user>@<host>  ~/project  <session title>      R6.7M CH99.9% $0.02  2026-08-07 23:25

@@ -347,7 +347,7 @@ Expected: exit 0, no errors.
 - [ ] **Step 7: Run the full test suite (regression)**
 
 Run: `bash test/run-all.sh`
-Expected: `OK: 5/5 test files passed` (all files pass, including the updated statusline tests).
+Expected: `OK: 4/4 test files passed` (all files pass, including the updated statusline tests).
 
 - [ ] **Step 8: Commit**
 
@@ -455,5 +455,5 @@ After all tasks:
 
 - [ ] `bash test/run-all.sh` → all test files pass
 - [ ] `npx esbuild index.ts --loader:.ts=ts --outfile=/dev/null` → no syntax errors
-- [ ] `git log --oneline` shows the four commits (spec + 3 tasks) on branch `issue-5-surfacing-extension-statuses`
+- [ ] `git log --oneline` shows the spec commit plus the task/fix commits on branch `issue-5-surfacing-extension-statuses`
 - [ ] Main checkout (`/home/elling/git-repo/github/pi-statusbar`) is untouched: `git status --short` there is clean
