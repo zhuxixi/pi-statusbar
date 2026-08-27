@@ -6,6 +6,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Extension statuses from `ctx.ui.setStatus()` (e.g. the MCP status line
+  from pi-mcp-adapter) are now surfaced as an optional third footer line,
+  mirroring the built-in footer: key-sorted, sanitized, truncated. The line
+  only appears while at least one extension publishes a status; existing
+  two-line layout is unchanged otherwise. ([#5](https://github.com/zhuxixi/pi-statusbar/issues/5))
+
 ## [0.1.2] - 2026-08-20
 
 ### Changed
