@@ -1,6 +1,6 @@
 {
   "name": "@zhuxixi/pi-statusbar",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A two-line status bar (footer) extension for pi",
   "keywords": [
     "pi",
