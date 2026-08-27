@@ -127,6 +127,16 @@ eq(
 	formatExtensionStatuses(new Map([["k", "a\nb  c"]])),
 	"a b c",
 );
+eq(
+	"formatStatuses all blank values",
+	formatExtensionStatuses(
+		new Map([
+			["a", "\n"],
+			["b", "  "],
+		]),
+	),
+	"",
+);
 
 // ---- statusesChanged ----
 eq(

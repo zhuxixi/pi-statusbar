@@ -102,12 +102,14 @@ export function sanitizeStatusText(text: string): string {
 
 // Format extension statuses (ctx.ui.setStatus) as one line, mirroring the
 // built-in footer: sorted by key, values sanitized, joined with one space.
-// Returns "" when there is nothing to show (empty Map or all values blank).
+// Returns "" when there is nothing to show — empty Map, or every value
+// sanitizes to blank.
 export function formatExtensionStatuses(statuses: ReadonlyMap<string, string>): string {
 	if (statuses.size === 0) return "";
 	return Array.from(statuses.entries())
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([, text]) => sanitizeStatusText(text))
+		.filter((text) => text.length > 0)
 		.join(" ");
 }
 
