@@ -4,14 +4,21 @@
 [![license](https://img.shields.io/github/license/zhuxixi/pi-statusbar)](./LICENSE)
 [![pi package](https://img.shields.io/badge/pi-package-181717?logo=github)](https://pi.dev/packages)
 
-A two-line status bar (footer) extension for [pi](https://github.com/earendil-works/pi-coding-agent).
+A two-line status bar (footer) extension for [pi](https://github.com/earendil-works/pi-coding-agent),
+plus an optional third line for extension statuses published via `ctx.ui.setStatus()`
+(e.g. pi-mcp-adapter's MCP line).
 
 ![pi-statusbar footer rendering](assets/screenshot.png)
 
 ```text
 <user>@<host>  ~/project  <session title>      R6.7M CH99.9% $0.02  2026-08-07 23:25
 owner/repo | git:(main)                        (provider) model • effort • ctx:N%
+💳 dt $0.01/$199.99   🔌 MCP: 7 servers enabled
 ```
+
+The third line shows statuses that other extensions publish via
+`ctx.ui.setStatus()`. It appears only while at least one extension has
+status text, and disappears otherwise — the base layout stays two lines.
 
 ## Table of Contents
 
@@ -35,6 +42,11 @@ owner/repo | git:(main)                        (provider) model • effort • c
   GitHub/GitLab/Gitea/self-hosted/SSH aliases), current branch,
   provider, model, thinking-effort level, and context-usage
   percentage.
+- **Line 3 (optional)**: statuses published by other extensions via
+  `ctx.ui.setStatus()` — key-sorted, sanitized, truncated to the
+  terminal width, ANSI colors preserved. Only rendered while at least
+  one extension publishes a status; otherwise the footer stays two
+  lines.
 - **Adaptive colors**: `ctx:N%` thresholds adapt to the model's
   context window and pi's compaction trigger
   (`contextWindow - reserveTokens`); each thinking level gets its own
