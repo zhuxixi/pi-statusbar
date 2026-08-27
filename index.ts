@@ -1,9 +1,10 @@
 /**
  * pi-statusbar — 双行底部状态栏（footer）扩展，两行布局
  *
- * Layout (two lines, left/right aligned):
+ * Layout (two lines plus an optional status line, left/right aligned):
  *   <user>@<host>  ~/project  <session title>      R6.7M CH99.9% $0.02  2026-08-07 23:25
  *   owner/repo | git:(main)                        (provider) model • effort • ctx:N%
+ *   💳 dt $0.01/$199.99   🔌 MCP: 7 servers enabled            (only when extensions set status)
  *
  * Line 1 — left: user@host + cwd + <session title>;  right: cache + cost + datetime
  * Line 2 — left: git remote | git:(branch);  right: (provider) model • effort • ctx:N%
@@ -31,6 +32,10 @@
  *                 subscription providers record 0 and add nothing). Shown
  *                 as $X.XX (usd) or ¥X.XX (cny, manual rate), always two
  *                 decimals, dim, only when the total is > 0.
+ *   status line : extension statuses from ctx.ui.setStatus (third line,
+ *                 only shown when at least one extension has status text);
+ *                 key-sorted, sanitized, truncated with a dim ellipsis;
+ *                 ANSI colors from the status values are preserved
  *
  * Colors (light-warm palette): cwd/ctx-normal = text(dark), title = accent(teal),
  * git branch = success(green), provider = border(blue), model = accent(teal),
@@ -54,10 +59,12 @@ import { parseRateInput, readConfig, writeConfig } from "./lib/config";
 import { slugFromRemoteUrl } from "./lib/remote-slug";
 import {
 	clockStr,
+	formatExtensionStatuses,
 	hjoin,
 	modelName,
 	resolveUserHost,
 	shortCwd,
+	statusesChanged,
 	stripRepoPrefix,
 	thinkColor,
 	triggerPct,
@@ -136,10 +143,24 @@ export default function (pi: ExtensionAPI) {
 				}
 			}, 1000);
 
+			// pi's FooterDataProvider has no callback for extension status
+			// changes (ctx.ui.setStatus), so poll the Map every 10s and
+			// re-render only when its contents actually changed. The compare
+			// is O(n) over a handful of entries — negligible.
+			let statusSnapshot: ReadonlyMap<string, string> = footerData.getExtensionStatuses();
+			const statusInterval = setInterval(() => {
+				const current = footerData.getExtensionStatuses();
+				if (statusesChanged(statusSnapshot, current)) {
+					statusSnapshot = current;
+					tui.requestRender();
+				}
+			}, 10000);
+
 			return {
 				dispose() {
 					unsubBranch();
 					clearInterval(interval);
+					clearInterval(statusInterval);
 					requestFooterRender = null;
 				},
 				invalidate() {},
@@ -232,7 +253,16 @@ export default function (pi: ExtensionAPI) {
 
 					const line2 = joinLine(l2Left, l2Right, width);
 
-					return [line1, line2];
+					// ---- Line 3: extension statuses (ctx.ui.setStatus) ----
+					// Mirrors the built-in footer: key-sorted, sanitized,
+					// joined with spaces, truncated with a dim ellipsis.
+					// Values keep their own ANSI colors (no wrapping).
+					const lines = [line1, line2];
+					const statusLine = formatExtensionStatuses(footerData.getExtensionStatuses());
+					if (statusLine) {
+						lines.push(truncateToWidth(statusLine, width, dim("...")));
+					}
+					return lines;
 				},
 			};
 		});
